@@ -49,9 +49,8 @@ void Parser::Interpret() {
                         if (scanIdx < tokens.size() && tokens[scanIdx].token == TOKEN_IDENTIFIER) {
                             path += "." + tokens[scanIdx].value;
                             scanIdx++;
-                        } else {
+                        } else
                             break;
-                        }
                     }
                     pths.push_back(path);
                     continue;
@@ -103,15 +102,13 @@ void Parser::Interpret() {
                 Parser importer(content, canonicalStr);
                 importer.Interpret();
             }
-        } else {
+        } else
             scanIdx++;
-        }
     }
 
     std::vector<AST*> nodes = parse();
-    for(AST* node : nodes) {
+    for(AST* node : nodes)
         Evalulate(node);
-    }
 }
 
 ORB_TOKEN& Parser::current() {
@@ -643,9 +640,8 @@ std::vector<AST*> Parser::parse() {
             idx++;
             continue;
         }
-        
+
         nodes.push_back(statement());
-        
         if(current().token == TOKEN_EOL || current().token == TOKEN_FULL_STOP || current().token == TOKEN_SEMICOLON)
             idx++;
     }
@@ -678,7 +674,7 @@ std::vector<AST*> Parser::parseBlocks() {
     return nodes;
 }
 
-std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
+std::variant<double, long, int, int32_t, int64_t, float, long long, std::string> Parser::Evalulate(AST* node) {
     if(auto n = dynamic_cast<NumberNode*>(node))
         return n->value;
     else if(auto s = dynamic_cast<StringNode*>(node))
@@ -713,8 +709,8 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
         }
     }
     else if(auto b = dynamic_cast<BinOpNode*>(node)) {
-        std::variant<double, long, int, std::string> leftVal = Evalulate(b->left);
-        std::variant<double, long, int, std::string> rightVal = Evalulate(b->right);
+        std::variant<double, long, int, int32_t, int64_t, float, long long, std::string> leftVal = Evalulate(b->left);
+        std::variant<double, long, int, int32_t, int64_t, float, long long, std::string> rightVal = Evalulate(b->right);
         
         bool isString = std::holds_alternative<std::string>(leftVal) || std::holds_alternative<std::string>(rightVal);
         
@@ -779,7 +775,6 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
         }
 
         std::map<std::string, VariableInfo> backup;
-
         for (size_t i = 0; i < fn->args.size(); i++) {
             const std::string& argName = fn->args[i];
 
@@ -787,7 +782,7 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
             if (it != variableTable.end())
                 backup[argName] = it->second;
 
-            std::variant<double, long, int, std::string> argValue = Evalulate(c->args[i]);
+            std::variant<double, long, int, int32_t, int64_t, float, long long, std::string> argValue = Evalulate(c->args[i]);
 
             VariableInfo vinfo;
             vinfo.value = std::visit([](auto&& v) -> std::string {
@@ -797,11 +792,28 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
             }, argValue);
             vinfo.dtype = std::visit([&](auto&& v) -> DATA_TYPE {
                 using T = std::decay_t<decltype(v)>;
-                if constexpr (std::is_same_v<T, std::string>) return DATA_TYPE_STRING;
-                else if constexpr (std::is_same_v<T, int>) return DATA_TYPE_INT;
+                if (vinfo.value == "True" || vinfo.value == "False") return DATA_TYPE_BOOLEAN;
+                else if constexpr (std::is_same_v<T, std::string>) {
+                    bool hasAlphabet = false;
+                    if (vinfo.value == "")
+                        return DATA_TYPE_STRING;
+
+                    for (cur : vinfo.value) {
+                        if (isAlpha(cur))
+                            isAlphabet = true;
+                    }
+                    if (hasAlphabet)
+                        return DATA_TYPE_STRING;
+                    else
+                        return DATA_TYPE_DOUBLE;
+                };
+                else if constexpr (std::is_same_v<T, int> ||
+                                   std::is_same_v<T, int32_t> ||
+                                   std::is_same_v<T, int64_t>) return DATA_TYPE_INT;
                 else if constexpr (std::is_same_v<T, float>) return DATA_TYPE_FLOAT;
-                else if constexpr (std::is_same_v<T, double>) return DATA_TYPE_DOUBLE;
-                else if (vinfo.value == "True" || vinfo.value == "False") return DATA_TYPE_BOOLEAN;
+                else if constexpr (std::is_same_v<T, double> ||
+                                   std::is_same_v<T, long> ||
+                                   std::is_same_v<T, long long>) return DATA_TYPE_DOUBLE;
                 else return DATA_TYPE_STRING;
             }, argValue);
             vinfo.isConst = false;
@@ -837,7 +849,7 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
         return 0L; // Proper Implement Return Function Later
     }
     else if(auto ifnd = dynamic_cast<IfNode*>(node)) {
-        std::variant<double, long, int, std::string> condition = Evalulate(ifnd->condition);
+        std::variant<double, long, int, int32_t, int64_t, float, long long, std::string> condition = Evalulate(ifnd->condition);
         if(std::holds_alternative<std::string>(condition)) {
             std::string condStr = std::get<std::string>(condition);
             if(condStr == "True" || condStr == "False") {
@@ -877,7 +889,7 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
         if(functionTable.find(a->name) != functionTable.end())
             functionTable.erase(a->name);
 
-        std::variant<double, long, int, std::string> val = Evalulate(a->value);
+        std::variant<double, long, int, int32_t, int64_t, float, long long, std::string> val = Evalulate(a->value);
         VariableInfo vinfo;
         vinfo.value = std::visit([](auto&& v) -> std::string {
             using T = std::decay_t<decltype(v)>;
@@ -899,8 +911,8 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
         return val;
     }
     else if(auto bl = dynamic_cast<BooleanNode*>(node)) {
-        std::variant<double, long, int, std::string> l = Evalulate(bl->left);
-        std::variant<double, long, int, std::string> r = Evalulate(bl->right);
+        std::variant<double, long, int, int32_t, int64_t, float, long long, std::string> l = Evalulate(bl->left);
+        std::variant<double, long, int, int32_t, int64_t, float, long long, std::string> r = Evalulate(bl->right);
 
         if (
             (std::holds_alternative<int>(l) || std::holds_alternative<double>(l) || std::holds_alternative<long>(l)) &&

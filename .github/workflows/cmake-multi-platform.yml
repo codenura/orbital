@@ -1,102 +1,101 @@
-name: Orbital CI (CMake Multi-Platform)
+name: CMake on multiple platforms
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "main" ]
 
 jobs:
   build:
-    name: ${{ matrix.os }}-${{ matrix.compiler }}-${{ matrix.build_type }}
     runs-on: ${{ matrix.os }}
-
+    env:
+      VCPKG_ROOT: /usr/local/share/vcpkg
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
+        build_type: [Release]
+        c_compiler: [gcc, clang]
         include:
           - os: ubuntu-latest
-            compiler: gcc
             c_compiler: gcc
             cpp_compiler: g++
-            build_type: Release
-
           - os: ubuntu-latest
-            compiler: mingw
-            c_compiler: x86_64-w64-mingw32-gcc
-            cpp_compiler: x86_64-w64-mingw32-g++
-            build_type: Release
-            target: windows
-
-          # - os: windows-latest
-          #   compiler: msvc-latest
-          #   c_compiler: cl
-          #   cpp_compiler: cl
-          #   build_type: Release
+            c_compiler: clang
+            cpp_compiler: clang++
+        exclude:
+          - os: ubuntu-latest
+            c_compiler: cl
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup build directory
-        id: paths
+      - name: Set reusable strings
+        id: strings
         shell: bash
-        run: echo "build_dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
-      - name: Setup MSVC (Latest)
-        if: matrix.os == 'windows-latest'
-        uses: ilammy/msvc-dev-cmd@v1
+      - name: Set up vcpkg binary caching
+        uses: actions/cache@v4
         with:
-          arch: x64
+          path: ~/.cache/vcpkg/archives
+          key: ${{ runner.os }}-vcpkg-${{ hashFiles('vcpkg.json') }}-${{ matrix.c_compiler }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-${{ hashFiles('vcpkg.json') }}-
+            ${{ runner.os }}-vcpkg-
+
+      - name: Configure vcpkg binary cache environment
+        run: |
+          mkdir -p ~/.cache/vcpkg/archives
+          echo "VCPKG_DEFAULT_BINARY_CACHE=${HOME}/.cache/vcpkg/archives" >> $GITHUB_ENV
+          echo "VCPKG_ROOT=$VCPKG_ROOT" >> $GITHUB_ENV
+
+      - name: Preload and Verify libuuid Archive
+        shell: bash
+        run: |
+          LIBUUID_ARCHIVE="$VCPKG_ROOT/downloads/libuuid-1.0.3.tar.gz"
+          EXPECTED_SHA512="77488caccc66503f6f2ded7bdfc4d3bc2c20b24a8dc95b2051633c695e99ec27876ffbafe38269b939826e1fdb06eea328f07b796c9e0aaca12331a787175507"
+
+          if [ ! -f "$LIBUUID_ARCHIVE" ]; then
+              mkdir -p "$VCPKG_ROOT/downloads"
+              curl -fL --retry 3 --retry-all-errors --max-time 120 \
+                  "https://downloads.sourceforge.net/project/libuuid/libuuid-1.0.3.tar.gz" \
+                  -o "$LIBUUID_ARCHIVE" || { echo "Failed to download the libuuid source archive."; rm -f "$LIBUUID_ARCHIVE"; exit 1; }
+
+              ACTUAL_SHA512=$(sha512sum "$LIBUUID_ARCHIVE" | awk '{print $1}')
+              if [ "$ACTUAL_SHA512" != "$EXPECTED_SHA512" ]; then
+                  echo "The downloaded libuuid archive failed its SHA-512 check."
+                  rm -f "$LIBUUID_ARCHIVE"
+                  exit 1
+              fi
+          fi
 
       - name: Install Required Dependencies
-        shell: bash
         run: |
-          # Unset VCPKG_ROOT to avoid the path mismatch warning
-          unset VCPKG_ROOT
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-             # Update vcpkg to get the latest baseline commit
-             cd "$VCPKG_INSTALLATION_ROOT" && git pull
-             cd "$GITHUB_WORKSPACE"
-             vcpkg install
-          else
-             sudo apt-get update
-             sudo apt-get install -y libncurses5-dev libncursesw5-dev
-          fi
-        
+          sudo apt update
+          sudo apt-get install -y build-essential bison libxrender-dev libxft-dev python3-jinja2 libxi-dev libxtst-dev \
+                                  autoconf autoconf-archive automake libtool zip unzip libxrandr-dev nasm gfortran \
+                                  python3-full python3-venv libltdl-dev
+          vcpkg install
+
+      - name: Initialize The All Submodules Of This Repo
+        run: |
+          git submodule update --init --recursive --remote
+
       - name: Configure CMake
-        shell: bash
-        run: |
-          # Unset VCPKG_ROOT to avoid the path mismatch warning
-          unset VCPKG_ROOT
-          if [ "${{ matrix.compiler }}" = "mingw" ]; then
-            sudo apt-get update
-            sudo apt-get install -y mingw-w64
-          elif [ "${{ matrix.os }}" = "windows-latest" ]; then
-            # Update vcpkg to get the latest baseline commit
-            cd "$VCPKG_INSTALLATION_ROOT" && git pull
-            cd "$GITHUB_WORKSPACE"
-            vcpkg install
-          else
-            sudo apt-get update
-            sudo apt-get install -y libncurses5-dev libncursesw5-dev
-          fi
+        run: >
+          cmake -B ${{ steps.strings.outputs.build-output-dir }}
+          --preset=default
+          -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
+          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+          -S ${{ github.workspace }}
 
       - name: Build
-        run: cmake --build "${{ steps.paths.outputs.build_dir }}" --config ${{ matrix.build_type }}
+        run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
 
-      - name: Locate binary
-        id: binary
-        shell: bash
-        run: |
-          if [ "${{ matrix.os }}" = "windows-latest" ] || [ "${{ matrix.compiler }}" = "mingw" ]; then
-            echo "binary_path=${{ steps.paths.outputs.build_dir }}/src/${{ matrix.build_type }}/orbital.exe" >> "$GITHUB_OUTPUT"
-          else
-            echo "binary_path=${{ steps.paths.outputs.build_dir }}/src/orbital" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: orbital-${{ matrix.os }}-${{ matrix.compiler }}
-          path: ${{ steps.binary.outputs.binary_path }}
+      - name: Test
+        working-directory: ${{ steps.strings.outputs.build-output-dir }}
+        run: ctest --verbose --build-config ${{ matrix.build_type }}

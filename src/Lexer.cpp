@@ -119,9 +119,23 @@ std::vector<ORB_TOKEN> Lexer::Tokenize(std::string value, std::string filename) 
 			idx++;
 		}
 		else if (cur == '-') {
-			tkn.token = TOKEN_MINUS;
-			tkn.value = "-";
-			idx++;
+			if (Peek() == '-') {
+				idx++;
+				if (Peek() == '-') {
+					while (idx < value.length() && value[idx] != '\n')
+						idx++; // Ignore all contents until end of line
+					int consumed = idx - lastIDX;
+					col += consumed;
+					continue;
+				} else {
+					idx--;
+					tkn.token = TOKEN_DECREMENT;
+				}
+			} else {
+				tkn.token = TOKEN_MINUS;
+				tkn.value = "-";
+				idx++;
+			}
 		}
 		else if (cur == '*') {
 			tkn.token = TOKEN_MULTIPLY;
@@ -172,8 +186,11 @@ std::vector<ORB_TOKEN> Lexer::Tokenize(std::string value, std::string filename) 
 			continue;
 		}
 		else if (cur == '#') {
-			while (idx < value.length() && value[idx] != '\n')
+			while (value[idx] != '---') {
+				if (idx > value.length())
+					error(tkn, "Multiline comment is not closed using '---'.");
 				idx++; // Ignore all contents until end of line
+			}
 			int consumed = idx - lastIDX;
 			col += consumed;
 			continue;
@@ -192,9 +209,8 @@ std::vector<ORB_TOKEN> Lexer::Tokenize(std::string value, std::string filename) 
 			idx++;
 
 		int consumed = idx - lastIDX;
-		if (tkn.token != TOKEN_EOL) {
+		if (tkn.token != TOKEN_EOL)
 			col += consumed;
-		}
 
 		tkns.push_back(tkn);
 	}

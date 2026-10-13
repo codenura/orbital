@@ -28,7 +28,7 @@ typedef enum {
 struct VariableInfo {
     std::string value;
     DATA_TYPE dtype;
-    bool isConst;
+    bool isConst = false;
 };
 
 struct FunctionNode;
@@ -173,5 +173,5 @@ public:
 
     void Interpret();
 
-    std::variant<double, long, int, std::string> Evalulate(AST* node);
+    std::variant<double, long, int, int32_t, int64_t, float, long long, std::string> Evalulate(AST* node);
 };

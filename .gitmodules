@@ -1,0 +1,3 @@
+[submodule "lib/insset"]
+	path = lib/insset
+	url = https://github.com/codenura/insset.git

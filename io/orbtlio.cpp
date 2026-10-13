@@ -48,7 +48,7 @@ void init() {
     isInitialized = true;
 }
 
-std::variant<double, long, int, std::string> vinput() {
+std::variant<double, long, int, int32_t, int64_t, float, long long, std::string> vinput() {
     std::string s;
     std::cin >> s;
 
@@ -79,12 +79,11 @@ std::variant<double, long, int, std::string> vinput() {
     return s;
 }
 
-std::variant<double, long, int, std::string> exec(CallNode* cn) {
+std::variant<double, long, int, int32_t, int64_t, float, long long, std::string> exec(CallNode* cn) {
     // dispatch to module owner if one exists for this function
     auto mit = functionModule.find(cn->name);
-    if (mit != functionModule.end() && mit->second != nullptr) {
+    if (mit != functionModule.end() && mit->second != nullptr)
         return mit->second->exec(cn);
-    }
 
 	if (cn->name == "print") {
 		std::cout << variableTable.find("text")->second.value << std::endl;

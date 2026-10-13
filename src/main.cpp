@@ -1,5 +1,5 @@
 /*
- * Orbital Shell  Copyright (C) 2026  First Person
+ * Orbital Shell  Copyright (C) 2026  Abdullah Al Nahian Raiyan <abdullahal3829@gmail.com>
  * This program comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
  * This is free software, and you are welcome to redistribute it
  * under certain conditions; type `show c' for details.
@@ -404,8 +404,8 @@ int main(int argc, char **argv) {
         int yearInt = static_cast<int>(nyear);
         std::string copyrightYear = yearInt > 2026 ? std::to_string(yearInt) : "2026";
 
-        std::cout << std::string(NAME_STRING) + " Programming Language " + VERSION_STRING << std::endl;
-        std::cout << "Copyright (c) " << copyrightYear << " First Person" << std::endl << std::endl;
+        std::cout << std::string(NAME_STRING) + " Programming Language " + APP_VERSION << std::endl;
+        std::cout << "Copyright (c) " << copyrightYear << " Abdullah Al Nahian Raiyan <abdullahal3829@gmail.com>" << std::endl << std::endl;
 
         while (true) {
             std::string line = input();

@@ -20,7 +20,6 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     target_link_options(orbital PRIVATE -static-libgcc -static-libstdc++)
 endif()
 
-#[[
 if(WIN32)
     # Use dlfcn-win32 to provide dlopen/dlsym on Windows
     find_package(dlfcn-win32 REQUIRED)
@@ -29,10 +28,10 @@ else()
     # Use standard POSIX dlfcn
     set(DL_LIBRARY ${CMAKE_DL_LIBS})
 endif()
-]]
 
 project ("Orbital")
-set(VERSION_STRING "1.0.0-alpha")
+include(CTest)
+set(APP_VERSION "1.0.0-alpha")
 string(TOLOWER ${PROJECT_NAME} EXECUTEABLE_NAME)
 
 if(DEFINED ENV{VCPKG_ROOT})
@@ -51,7 +50,7 @@ else()
 endif()
 
 # Add Compile Definations
-add_compile_definitions(VERSION_STRING="${VERSION_STRING}")
+add_compile_definitions(APP_VERSION="${APP_VERSION}")
 add_compile_definitions(NAME_STRING="${PROJECT_NAME}")
 
 # Include sub-projects.

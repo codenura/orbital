@@ -17,7 +17,7 @@ endif()
 
 target_link_libraries(${EXECUTEABLE_NAME} PRIVATE
     orbtlio
-#    DL_LIBRARY
+    ${DL_LIBRARY}
 )
 
 if(WIN32)
@@ -34,3 +34,13 @@ set_target_properties(${EXECUTEABLE_NAME} PROPERTIES
     CXX_STANDARD 20
     CXX_STANDARD_REQUIRED ON
 )
+
+if(BUILD_TESTING)
+    file(GLOB SAMPLE_FILES "${CMAKE_SOURCE_DIR}/sample/*.obt")
+    foreach(SAMPLE_FILE ${SAMPLE_FILES})
+        get_filename_component(SAMPLE_NAME ${SAMPLE_FILE} NAME_WE)
+        add_test(NAME "sample_${SAMPLE_NAME}"
+            COMMAND ${EXECUTEABLE_NAME} ${SAMPLE_FILE}
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+    endforeach()
+endif()
